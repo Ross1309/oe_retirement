@@ -81,6 +81,7 @@
           <select id="sourceFilter" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-500">
             <option value="All">All Sources</option>
             <option value="EPA">EPA</option>
+            <option value="NRC">NRC</option>
             <option value="OSHA">OSHA</option>
             <option value="DOE">DOE</option>
             <option value="CSB">CSB</option>
@@ -240,7 +241,6 @@
     }
 
     function updateCharts(records) {
-      // 1. Process Document Types
       const docTypeCounts = records.reduce((acc, r) => {
         const type = r.docType || "Notice";
         acc[type] = (acc[type] || 0) + 1;
@@ -268,7 +268,6 @@
         }
       });
 
-      // 2. Process Publication Timeline Years
       const yearCounts = records.reduce((acc, r) => {
         const year = r.publicationYear || "2026";
         acc[year] = (acc[year] || 0) + 1;

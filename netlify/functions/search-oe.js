@@ -12,6 +12,8 @@ export async function handler(event, context) {
       if (source && source !== "All") {
         if (source === "OSHA") agencyQuery = " Occupational Safety and Health Administration";
         else if (source === "EPA") agencyQuery = " Environmental Protection Agency";
+        else if (source === "DOE") agencyQuery = " Department of Energy";
+        else if (source === "NRC") agencyQuery = " Nuclear Regulatory Commission";
         else if (source === "CSB") agencyQuery = " Chemical Safety Board";
         else if (source === "NIOSH") agencyQuery = " National Institute for Occupational Safety and Health";
       }
@@ -28,18 +30,22 @@ export async function handler(event, context) {
       const json = await response.json();
       
       let records = (json.results || []).map((doc, index) => {
-        const agencyString = doc.agency_names ? doc.agency_names.join(", ") : "Federal Agency";
+        const agencyList = doc.agency_names || [];
+        const agencyString = agencyList.join(", ");
+        const lowerAgencies = agencyString.toLowerCase();
+        const titleLower = (doc.title || "").toLowerCase();
         const pubDate = doc.publication_date || "2026-01-01";
         const pubYear = pubDate.split("-")[0];
         
         let sourceFamily = "EPA";
-        const lowerAgencies = agencyString.toLowerCase();
         if (lowerAgencies.includes("labor") || lowerAgencies.includes("occupational safety") || lowerAgencies.includes("osha")) {
           sourceFamily = "OSHA";
-        } else if (lowerAgencies.includes("chemical safety") || lowerAgencies.includes("csb")) {
-          sourceFamily = "CSB";
+        } else if (lowerAgencies.includes("nuclear regulatory commission") || lowerAgencies.includes("nrc") || titleLower.includes("nuclear") || titleLower.includes("reactor")) {
+          sourceFamily = "NRC";
         } else if (lowerAgencies.includes("energy") || lowerAgencies.includes("doe")) {
           sourceFamily = "DOE";
+        } else if (lowerAgencies.includes("chemical safety") || lowerAgencies.includes("csb")) {
+          sourceFamily = "CSB";
         } else if (lowerAgencies.includes("health") || lowerAgencies.includes("niosh") || lowerAgencies.includes("cdc")) {
           sourceFamily = "NIOSH";
         } else if (lowerAgencies.includes("environmental") || lowerAgencies.includes("epa")) {
@@ -50,19 +56,21 @@ export async function handler(event, context) {
           sourceFamily = source;
         }
   
+        const docUrl = doc.html_url || `https://www.federalregister.gov/d/${doc.document_number}`;
+  
         return {
           id: doc.document_number || `FR-${index}`,
           title: doc.title,
           docType: doc.type || "Notice",
           publicationYear: pubYear,
           sourceFamily: sourceFamily,
-          projectPhase: phase && phase !== "All" ? phase : (doc.title.toLowerCase().includes("demolition") ? "Demolition" : "Decommissioning"),
-          primaryTopic: topic && topic !== "All" ? topic : "Industrial Safety",
+          projectPhase: phase && phase !== "All" ? phase : (titleLower.includes("demolition") ? "Demolition" : "Decommissioning"),
+          primaryTopic: topic && topic !== "All" ? topic : (titleLower.includes("nuclear") ? "Radiation Protection" : "Industrial Safety"),
           consequence: consequence && consequence !== "All" ? consequence : "Regulatory Compliance",
           severity: doc.type === "Rule" ? "High" : (doc.type === "Proposed Rule" ? "Medium" : "Low"),
           date: pubDate,
-          summary: doc.abstract || `${agencyString}: Notice regarding plant operations, regulatory safety standards, and compliance guidelines.`,
-          lessons: `Official Record / Citation: ${doc.citation || 'Federal Register Document'} - Link: ${doc.html_url}`
+          summary: doc.abstract || `${agencyString || 'Federal Agency'}: Notice regarding plant operations, regulatory safety standards, and compliance guidelines.`,
+          lessons: `Official Record / Citation: ${doc.citation || 'Federal Register Document'} - Link: ${docUrl}`
         };
       });
   
