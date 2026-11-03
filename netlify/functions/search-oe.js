@@ -9,7 +9,7 @@ export async function handler(event, context) {
       if (phase && phase !== "All") searchTerms.push(phase);
       if (consequence && consequence !== "All") searchTerms.push(consequence);
       
-      // If a specific source family is requested, target agencies accordingly
+      // Target specific agency keywords if requested
       let agencyQuery = "";
       if (source && source !== "All") {
         if (source === "OSHA") agencyQuery = " Occupational Safety and Health Administration";
@@ -20,8 +20,8 @@ export async function handler(event, context) {
   
       const queryTerm = searchTerms.length > 0 ? searchTerms.join(" ") + agencyQuery : "plant decommissioning safety demolition" + agencyQuery;
       
-      // Query the live, public Federal Register API with specific search terms
-      const frUrl = `https://www.federalregister.gov/api/v1/documents.json?conditions[term]=${encodeURIComponent(queryTerm)}&per_page=20`;
+      // Query the live, public Federal Register API with per_page set to 50
+      const frUrl = `https://www.federalregister.gov/api/v1/documents.json?conditions[term]=${encodeURIComponent(queryTerm)}&per_page=50`;
       
       const response = await fetch(frUrl);
       if (!response.ok) {
@@ -32,7 +32,6 @@ export async function handler(event, context) {
       
       // Map real Federal Register documents into your dashboard's data format
       let records = (json.results || []).map((doc, index) => {
-        // Accurately extract agency name from the document metadata
         const agencyString = doc.agency_names ? doc.agency_names.join(", ") : "Federal Agency";
         
         let sourceFamily = "EPA";
@@ -49,12 +48,10 @@ export async function handler(event, context) {
           sourceFamily = "EPA";
         }
   
-        // If user explicitly filtered by source, ensure it aligns or use the requested source
         if (source && source !== "All") {
           sourceFamily = source;
         }
   
-        // Determine realistic severity based on document type or index
         let assignedSeverity = "Medium";
         if (doc.type === "Rule" || doc.action?.toLowerCase().includes("final rule")) {
           assignedSeverity = "High";
@@ -84,7 +81,6 @@ export async function handler(event, context) {
         };
       });
   
-      // Final filter check to match exact user criteria
       if (source && source !== "All") {
         records = records.filter(r => r.sourceFamily === source);
       }
