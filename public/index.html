@@ -147,6 +147,13 @@
       <div id="recordsContainer" class="space-y-4">
         <!-- Dynamic Cards Inserted Here -->
       </div>
+
+      <!-- Load More Pagination Control -->
+      <div id="loadMoreContainer" class="mt-6 text-center hidden no-print">
+        <button id="loadMoreBtn" class="bg-slate-700 hover:bg-slate-600 text-sky-400 font-medium px-6 py-2.5 rounded-lg text-sm transition border border-slate-600 shadow">
+          Load More Records (+50)
+        </button>
+      </div>
     </section>
 
   </main>
@@ -159,16 +166,25 @@
   <script>
     let docTypeChartInstance = null;
     let timelineChartInstance = null;
+    let currentPage = 1;
+    let allLoadedRecords = [];
 
     document.addEventListener("DOMContentLoaded", () => {
-      fetchRecords();
+      fetchRecords(true);
 
-      document.getElementById("searchBtn").addEventListener("click", fetchRecords);
+      document.getElementById("searchBtn").addEventListener("click", () => {
+        currentPage = 1;
+        fetchRecords(true);
+      });
       document.getElementById("resetBtn").addEventListener("click", resetFilters);
       document.getElementById("exportWordBtn").addEventListener("click", exportToWord);
+      document.getElementById("loadMoreBtn").addEventListener("click", () => {
+        currentPage++;
+        fetchRecords(false);
+      });
     });
 
-    async function fetchRecords() {
+    async function fetchRecords(reset = true) {
       const topic = document.getElementById("topicFilter").value;
       const phase = document.getElementById("phaseFilter").value;
       const consequence = document.getElementById("consequenceFilter").value;
@@ -179,17 +195,31 @@
       const loading = document.getElementById("loadingIndicator");
       loading.classList.remove("hidden");
 
-      const params = new URLSearchParams({ topic, phase, consequence, source, severity, search });
+      const params = new URLSearchParams({ topic, phase, consequence, source, severity, search, page: currentPage });
 
       try {
         const response = await fetch(`/api/search-oe?${params.toString()}`);
         if (!response.ok) throw new Error("API request failed");
         
         const result = await response.json();
-        const records = result.data || [];
+        const newRecords = result.data || [];
 
-        renderRecords(records);
-        updateCharts(records);
+        if (reset) {
+          allLoadedRecords = newRecords;
+        } else {
+          allLoadedRecords = allLoadedRecords.concat(newRecords);
+        }
+
+        renderRecords(allLoadedRecords);
+        updateCharts(allLoadedRecords);
+
+        const loadMoreContainer = document.getElementById("loadMoreContainer");
+        if (result.hasMore && newRecords.length > 0) {
+          loadMoreContainer.classList.remove("hidden");
+        } else {
+          loadMoreContainer.classList.add("hidden");
+        }
+
       } catch (err) {
         console.error("Fetch Error:", err);
         document.getElementById("recordsContainer").innerHTML = `
@@ -210,34 +240,62 @@
         return;
       }
 
-      container.innerHTML = records.map(r => `
-        <div class="bg-slate-900/60 border border-slate-700 p-5 rounded-xl shadow-lg hover:border-slate-600 transition print-card">
-          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-3 border-b border-slate-800 pb-3">
-            <div>
+      container.innerHTML = records.map((r, index) => `
+        <div class="bg-slate-900/60 border border-slate-700 p-4 rounded-xl shadow hover:border-slate-600 transition print-card">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div class="flex-grow">
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-xs font-mono text-sky-400 bg-sky-950/60 border border-sky-800/80 px-2 py-0.5 rounded">${escapeHtml(r.id)}</span>
                 <span class="text-xs text-slate-400">${r.date}</span>
+                <span class="text-xs text-slate-400 font-medium">(${r.docType || 'Notice'})</span>
               </div>
               <h3 class="font-bold text-sky-400 text-base leading-snug">${escapeHtml(r.title)}</h3>
             </div>
-            <div class="flex flex-wrap items-center gap-2 text-xs">
+            
+            <div class="flex flex-wrap items-center gap-2 text-xs shrink-0">
               <span class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 font-medium">${escapeHtml(r.sourceFamily || 'EPA')}</span>
               <span class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 font-medium">${escapeHtml(r.projectPhase || 'Decommissioning')}</span>
-              <span class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 font-medium">${escapeHtml(r.primaryTopic || 'Safety')}</span>
               <span class="${getSeverityClass(r.severity)} px-2.5 py-1 rounded-md font-semibold">${r.severity} Severity</span>
+              <button onclick="toggleCard(${index})" class="no-print bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1 rounded-md text-xs font-medium transition">
+                <span id="btn-text-${index}">Expand</span>
+              </button>
             </div>
           </div>
-          
-          <div class="mb-3 text-sm text-slate-300">
-            <strong class="text-slate-200">Event Summary:</strong> ${escapeHtml(r.summary)}
-          </div>
-          
-          <div class="text-xs text-slate-300 bg-slate-950/70 p-3 rounded-lg border border-slate-800/80">
-            <strong class="text-sky-400 block mb-1">Lessons Learned / Citation:</strong> 
-            ${escapeHtml(r.lessons)}
+
+          <!-- Collapsed Preview Snippet -->
+          <p class="text-slate-400 text-sm mt-2 line-clamp-2" id="preview-${index}">
+            ${escapeHtml(r.summary)}
+          </p>
+
+          <!-- Expanded Full Content -->
+          <div id="expanded-${index}" class="hidden mt-3 pt-3 border-t border-slate-800 space-y-3">
+            <div class="text-sm text-slate-300">
+              <strong class="text-slate-200 block mb-1">Event Summary:</strong> ${escapeHtml(r.summary)}
+            </div>
+            
+            <div class="text-xs text-slate-300 bg-slate-950/70 p-3 rounded-lg border border-slate-800/80">
+              <strong class="text-sky-400 block mb-1">Lessons Learned / Citation:</strong> 
+              ${escapeHtml(r.lessons)}
+            </div>
           </div>
         </div>
       `).join('');
+    }
+
+    function toggleCard(index) {
+      const expandedDiv = document.getElementById(`expanded-${index}`);
+      const previewP = document.getElementById(`preview-${index}`);
+      const btnText = document.getElementById(`btn-text-${index}`);
+
+      if (expandedDiv.classList.contains('hidden')) {
+        expandedDiv.classList.remove('hidden');
+        previewP.classList.remove('line-clamp-2');
+        btnText.innerText = "Collapse";
+      } else {
+        expandedDiv.classList.add('hidden');
+        previewP.classList.add('line-clamp-2');
+        btnText.innerText = "Expand";
+      }
     }
 
     function updateCharts(records) {
@@ -310,10 +368,15 @@
       document.getElementById("sourceFilter").value = "All";
       document.getElementById("severityFilter").value = "All";
       document.getElementById("searchInput").value = "";
-      fetchRecords();
+      currentPage = 1;
+      fetchRecords(true);
     }
 
     function exportToWord() {
+      // Temporarily expand all cards for the Word export document
+      document.querySelectorAll('[id^="expanded-"]').forEach(el => el.classList.remove('hidden'));
+      document.querySelectorAll('[id^="preview-"]').forEach(el => el.classList.remove('line-clamp-2'));
+
       const content = document.getElementById("recordsContainer").innerHTML;
       const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><title>OE Export</title></head><body>";
       const footer = "</body></html>";
@@ -326,6 +389,9 @@
       fileDownload.download = 'OE_Research_Report.doc';
       fileDownload.click();
       document.body.removeChild(fileDownload);
+      
+      // Re-collapse cards after export
+      renderRecords(allLoadedRecords);
     }
 
     function getSeverityClass(severity) {

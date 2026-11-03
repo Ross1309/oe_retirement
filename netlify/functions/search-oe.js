@@ -1,5 +1,5 @@
 export async function handler(event, context) {
-    const { topic, phase, consequence, source, severity, search } = event.queryStringParameters || {};
+    const { topic, phase, consequence, source, severity, search, page } = event.queryStringParameters || {};
   
     try {
       let searchTerms = [];
@@ -19,8 +19,9 @@ export async function handler(event, context) {
       }
   
       const queryTerm = searchTerms.length > 0 ? searchTerms.join(" ") + agencyQuery : "plant decommissioning safety demolition" + agencyQuery;
+      const pageNum = page || 1;
       
-      const frUrl = `https://www.federalregister.gov/api/v1/documents.json?conditions[term]=${encodeURIComponent(queryTerm)}&per_page=50`;
+      const frUrl = `https://www.federalregister.gov/api/v1/documents.json?conditions[term]=${encodeURIComponent(queryTerm)}&per_page=50&page=${pageNum}`;
       
       const response = await fetch(frUrl);
       if (!response.ok) {
@@ -91,6 +92,7 @@ export async function handler(event, context) {
         body: JSON.stringify({
           status: "success",
           count: records.length,
+          hasMore: records.length === 50,
           data: records
         })
       };
