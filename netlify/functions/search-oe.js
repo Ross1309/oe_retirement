@@ -2,14 +2,12 @@ export async function handler(event, context) {
     const { topic, phase, consequence, source, severity, search } = event.queryStringParameters || {};
   
     try {
-      // Build a targeted search term combining user input and active filters
       let searchTerms = [];
       if (search) searchTerms.push(search);
       if (topic && topic !== "All") searchTerms.push(topic);
       if (phase && phase !== "All") searchTerms.push(phase);
       if (consequence && consequence !== "All") searchTerms.push(consequence);
       
-      // Target specific agency keywords if requested
       let agencyQuery = "";
       if (source && source !== "All") {
         if (source === "OSHA") agencyQuery = " Occupational Safety and Health Administration";
@@ -20,7 +18,6 @@ export async function handler(event, context) {
   
       const queryTerm = searchTerms.length > 0 ? searchTerms.join(" ") + agencyQuery : "plant decommissioning safety demolition" + agencyQuery;
       
-      // Query the live, public Federal Register API with per_page set to 50
       const frUrl = `https://www.federalregister.gov/api/v1/documents.json?conditions[term]=${encodeURIComponent(queryTerm)}&per_page=50`;
       
       const response = await fetch(frUrl);
@@ -30,9 +27,10 @@ export async function handler(event, context) {
       
       const json = await response.json();
       
-      // Map real Federal Register documents into your dashboard's data format
       let records = (json.results || []).map((doc, index) => {
         const agencyString = doc.agency_names ? doc.agency_names.join(", ") : "Federal Agency";
+        const pubDate = doc.publication_date || "2026-01-01";
+        const pubYear = pubDate.split("-")[0];
         
         let sourceFamily = "EPA";
         const lowerAgencies = agencyString.toLowerCase();
@@ -52,30 +50,17 @@ export async function handler(event, context) {
           sourceFamily = source;
         }
   
-        let assignedSeverity = "Medium";
-        if (doc.type === "Rule" || doc.action?.toLowerCase().includes("final rule")) {
-          assignedSeverity = "High";
-        } else if (index % 3 === 0) {
-          assignedSeverity = "High";
-        } else if (index % 3 === 1) {
-          assignedSeverity = "Medium";
-        } else {
-          assignedSeverity = "Low";
-        }
-  
-        if (severity && severity !== "All") {
-          assignedSeverity = severity;
-        }
-  
         return {
           id: doc.document_number || `FR-${index}`,
           title: doc.title,
+          docType: doc.type || "Notice",
+          publicationYear: pubYear,
           sourceFamily: sourceFamily,
           projectPhase: phase && phase !== "All" ? phase : (doc.title.toLowerCase().includes("demolition") ? "Demolition" : "Decommissioning"),
           primaryTopic: topic && topic !== "All" ? topic : "Industrial Safety",
           consequence: consequence && consequence !== "All" ? consequence : "Regulatory Compliance",
-          severity: assignedSeverity,
-          date: doc.publication_date || "2026-01-01",
+          severity: doc.type === "Rule" ? "High" : (doc.type === "Proposed Rule" ? "Medium" : "Low"),
+          date: pubDate,
           summary: doc.abstract || `${agencyString}: Notice regarding plant operations, regulatory safety standards, and compliance guidelines.`,
           lessons: `Official Record / Citation: ${doc.citation || 'Federal Register Document'} - Link: ${doc.html_url}`
         };
