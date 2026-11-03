@@ -210,21 +210,30 @@
       }
 
       container.innerHTML = records.map(r => `
-        <div class="bg-slate-900/60 border border-slate-700 p-4 rounded-lg shadow hover:border-slate-600 transition print-card">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
-            <h3 class="font-bold text-sky-400 text-base">${escapeHtml(r.title)}</h3>
-            <div class="flex items-center gap-2 text-xs">
-              <span class="bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700">${r.sourceFamily || 'EPA'}</span>
-              <span class="bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700">${r.docType || 'Notice'}</span>
-              <span class="${getSeverityClass(r.severity)} px-2 py-1 rounded font-semibold">${r.severity} Severity</span>
+        <div class="bg-slate-900/60 border border-slate-700 p-5 rounded-xl shadow-lg hover:border-slate-600 transition print-card">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-3 border-b border-slate-800 pb-3">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono text-sky-400 bg-sky-950/60 border border-sky-800/80 px-2 py-0.5 rounded">${escapeHtml(r.id)}</span>
+                <span class="text-xs text-slate-400">${r.date}</span>
+              </div>
+              <h3 class="font-bold text-sky-400 text-base leading-snug">${escapeHtml(r.title)}</h3>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <span class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 font-medium">${escapeHtml(r.sourceFamily || 'EPA')}</span>
+              <span class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 font-medium">${escapeHtml(r.projectPhase || 'Decommissioning')}</span>
+              <span class="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 font-medium">${escapeHtml(r.primaryTopic || 'Safety')}</span>
+              <span class="${getSeverityClass(r.severity)} px-2.5 py-1 rounded-md font-semibold">${r.severity} Severity</span>
             </div>
           </div>
-          <p class="text-slate-300 text-sm mb-3">${escapeHtml(r.summary)}</p>
-          <div class="text-xs text-slate-400 bg-slate-900 p-2 rounded border border-slate-800">
-            <strong class="text-slate-300">Citation / Takeaway:</strong> ${escapeHtml(r.lessons)}
+          
+          <div class="mb-3 text-sm text-slate-300">
+            <strong class="text-slate-200">Event Summary:</strong> ${escapeHtml(r.summary)}
           </div>
-          <div class="mt-2 text-right text-xs text-slate-500">
-            Published: ${r.date}
+          
+          <div class="text-xs text-slate-300 bg-slate-950/70 p-3 rounded-lg border border-slate-800/80">
+            <strong class="text-sky-400 block mb-1">Lessons Learned / Citation:</strong> 
+            ${escapeHtml(r.lessons)}
           </div>
         </div>
       `).join('');
