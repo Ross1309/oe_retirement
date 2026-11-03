@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plant Retirement OE & Lessons Learned Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white; color: black; }
+      .print-shadow-none { box-shadow: none !important; border: 1px solid #ccc !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+  
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 p-6 no-print">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-sky-400">Plant Retirement OE & Lessons Learned</h1>
+        <p class="text-slate-400 text-sm mt-1">Demolition, decommissioning, environmental, chemical and industrial safety research dashboard</p>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="exportWordReport()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium transition">Export Word-Compatible Report</button>
+        <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded text-sm font-medium transition">Print / Save PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto p-6 space-y-6">
+    
+    <!-- Research Filters -->
+    <section class="bg-slate-800 border border-slate-700 rounded-lg p-5 no-print">
+      <h2 class="text-lg font-semibold text-slate-200 mb-4">Research Filters</h2>
+      <form id="filterForm" onsubmit="handleSearch(event)" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">PRIMARY TOPIC</label>
+          <select id="filterTopic" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200">
+            <option value="All">All Topics</option>
+            <option value="Industrial Safety">Industrial Safety</option>
+            <option value="Chemical Safety">Chemical Safety</option>
+            <option value="Demolition Operations">Demolition Operations</option>
+            <option value="Environmental">Environmental</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">PROJECT PHASE</label>
+          <select id="filterPhase" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200">
+            <option value="All">All Phases</option>
+            <option value="Decommissioning">Decommissioning</option>
+            <option value="Chemical Removal">Chemical Removal</option>
+            <option value="Demolition">Demolition</option>
+            <option value="Environmental Remediation">Environmental Remediation</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">CONSEQUENCE</label>
+          <select id="filterConsequence" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200">
+            <option value="All">All Consequences</option>
+            <option value="Worker Exposure">Worker Exposure</option>
+            <option value="Offsite Release">Offsite Release</option>
+            <option value="Equipment Damage">Equipment Damage</option>
+            <option value="Regulatory Penalty">Regulatory Penalty</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">SOURCE FAMILY</label>
+          <select id="filterSource" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200">
+            <option value="All">All Sources</option>
+            <option value="OSHA">OSHA</option>
+            <option value="CSB">CSB</option>
+            <option value="NIOSH">NIOSH</option>
+            <option value="EPA">EPA</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">SEVERITY</label>
+          <select id="filterSeverity" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200">
+            <option value="All">All Severities</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">SEARCH OE</label>
+          <input type="text" id="filterSearch" placeholder="Keywords..." class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200">
+        </div>
+        <div class="md:col-span-3 lg:col-span-6 flex justify-end gap-3 mt-2">
+          <button type="button" onclick="resetFilters()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded text-sm font-medium">Reset</button>
+          <button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white px-6 py-2 rounded text-sm font-medium">Search OE</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Visual Analytics -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-6 no-print">
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
+        <h3 class="text-sm font-semibold text-slate-300 mb-4">OE Breakdown by Source Family</h3>
+        <canvas id="sourceChart" class="max-h-56"></canvas>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
+        <h3 class="text-sm font-semibold text-slate-300 mb-4">Records by Severity Profile</h3>
+        <canvas id="severityChart" class="max-h-56"></canvas>
+      </div>
+    </section>
+
+    <!-- Data Table -->
+    <section class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden print-shadow-none">
+      <div class="p-5 border-b border-slate-700 flex justify-between items-center">
+        <h3 class="font-semibold text-slate-200">Operating Experience Records (<span id="recordCount">0</span>)</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/50 text-slate-400 uppercase text-xs">
+            <tr>
+              <th class="p-4">ID / Date</th>
+              <th class="p-4">Title</th>
+              <th class="p-4">Source</th>
+              <th class="p-4">Phase</th>
+              <th class="p-4">Severity</th>
+              <th class="p-4">Summary & Lessons</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-700">
+            <!-- Dynamic Rows -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    let chartSourceInstance = null;
+    let chartSeverityInstance = null;
+    let currentData = [];
+
+    async function handleSearch(e) {
+      if (e) e.preventDefault();
+      
+      const params = new URLSearchParams({
+        topic: document.getElementById('filterTopic').value,
+        phase: document.getElementById('filterPhase').value,
+        consequence: document.getElementById('filterConsequence').value,
+        source: document.getElementById('filterSource').value,
+        severity: document.getElementById('filterSeverity').value,
+        search: document.getElementById('filterSearch').value
+      });
+
+      try {
+        const res = await fetch(`/api/search-oe?${params.toString()}`);
+        const result = await res.json();
+        currentData = result.data || [];
+        renderTable(currentData);
+        renderCharts(currentData);
+      } catch (err) {
+        console.error("Failed to query Netlify OE function:", err);
+      }
+    }
+
+    function renderTable(data) {
+      document.getElementById('recordCount').innerText = data.length;
+      const tbody = document.getElementById('tableBody');
+      
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500">No matching OE records found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.map(r => `
+        <tr class="hover:bg-slate-700/50 transition">
+          <td class="p-4 whitespace-nowrap">
+            <div class="font-mono text-sky-400 font-medium">${r.id}</div>
+            <div class="text-xs text-slate-500">${r.date}</div>
+          </td>
+          <td class="p-4 font-medium text-slate-100">${r.title}</td>
+          <td class="p-4"><span class="bg-slate-700 px-2 py-1 rounded text-xs">${r.sourceFamily}</span></td>
+          <td class="p-4 text-xs text-slate-400">${r.projectPhase}</td>
+          <td class="p-4">
+            <span class="px-2 py-1 rounded text-xs font-semibold ${
+              r.severity === 'High' ? 'bg-red-900/60 text-red-300' :
+              r.severity === 'Medium' ? 'bg-amber-900/60 text-amber-300' : 'bg-emerald-900/60 text-emerald-300'
+            }">${r.severity}</span>
+          </td>
+          <td class="p-4 text-xs space-y-1">
+            <p><strong class="text-slate-200">Summary:</strong> ${r.summary}</p>
+            <p><strong class="text-sky-400">Lessons:</strong> ${r.lessons}</p>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderCharts(data) {
+      const sources = {};
+      const severities = { High: 0, Medium: 0, Low: 0 };
+
+      data.forEach(r => {
+        sources[r.sourceFamily] = (sources[r.sourceFamily] || 0) + 1;
+        if (severities[r.severity] !== undefined) severities[r.severity]++;
+      });
+
+      if (chartSourceInstance) chartSourceInstance.destroy();
+      if (chartSeverityInstance) chartSeverityInstance.destroy();
+
+      const ctxSource = document.getElementById('sourceChart').getContext('2d');
+      chartSourceInstance = new Chart(ctxSource, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(sources),
+          datasets: [{ data: Object.values(sources), backgroundColor: '#38bdf8' }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+      });
+
+      const ctxSeverity = document.getElementById('severityChart').getContext('2d');
+      chartSeverityInstance = new Chart(ctxSeverity, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(severities),
+          datasets: [{ data: Object.values(severities), backgroundColor: ['#ef4444', '#f59e0b', '#10b981'] }]
+        },
+        options: { plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } } }
+      });
+    }
+
+    function resetFilters() {
+      document.getElementById('filterForm').reset();
+      handleSearch();
+    }
+
+    function exportWordReport() {
+      const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><title>OE Report</title></head><body>";
+      const footer = "</body></html>";
+      let content = "<h2>Plant Retirement OE Summary Report</h2><hr/>";
+      
+      currentData.forEach(r => {
+        content += `<h3>[${r.id}] ${r.title}</h3>`;
+        content += `<p><b>Source:</b> ${r.sourceFamily} | <b>Phase:</b> ${r.projectPhase} | <b>Severity:</b> ${r.severity}</p>`;
+        content += `<p><b>Summary:</b> ${r.summary}</p>`;
+        content += `<p><b>Lessons Learned:</b> ${r.lessons}</p><br/>`;
+      });
+
+      const blob = new Blob(['\ufeff' + header + content + footer], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OE_Retirement_Report_${new Date().toISOString().slice(0,10)}.doc`;
+      a.click();
+    }
+
+    // Initial load
+    handleSearch();
+  </script>
+</body>
+</html>

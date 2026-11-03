@@ -1,0 +1,8 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/search-oe"
+  to = "/.netlify/functions/search-oe"
+  status = 200
